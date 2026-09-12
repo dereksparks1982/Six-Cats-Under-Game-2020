@@ -18,7 +18,7 @@ The goal of this repository is to preserve the original released game in a form 
 On Linux:
 
 ```bash
-./tools/capture_official_web.sh
+bash tools/capture_official_web.sh
 ```
 
 The capture tool follows the original Unity WebGL page, discovers same-build dependencies, downloads them into `offline-web/`, and generates SHA-256 and source manifests.
@@ -28,7 +28,7 @@ The capture tool follows the original Unity WebGL page, discovers same-build dep
 After a successful capture:
 
 ```bash
-./play.sh
+bash play.sh
 ```
 
 The launcher serves the preserved Unity build over localhost and opens it in the default browser. Unity WebGL builds should be served over HTTP rather than opened directly with `file://`.
