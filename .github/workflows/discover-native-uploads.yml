@@ -17,10 +17,10 @@ jobs:
       - name: Fetch public itch metadata
         run: |
           set -euxo pipefail
-          curl -fL --retry 3 -A 'Mozilla/5.0 Six-Cats-Under-Preservation' \
-            'https://teambeanloop.itch.io/six-cats-under' -o /tmp/page.html
-          curl -fL --retry 3 -A 'Mozilla/5.0 Six-Cats-Under-Preservation' \
-            'https://teambeanloop.itch.io/six-cats-under/data.json' -o /tmp/data.json
+          UA='Mozilla/5.0 Six-Cats-Under-Preservation'
+          BASE='https://teambeanloop.itch.io/six-cats-under'
+          curl -fL --retry 3 -A "$UA" "$BASE" -o /tmp/page.html
+          curl -fL --retry 3 -A "$UA" "$BASE/data.json" -o /tmp/data.json
           echo '===== DATA.JSON ====='
           cat /tmp/data.json
           echo
@@ -44,3 +44,21 @@ jobs:
           ids = sorted(set(re.findall(r'(?:upload_id|upload-id|data-upload_id|data-upload-id)[^0-9]{0,30}([0-9]{3,})', text, re.I)))
           print('\n'.join(ids) if ids else '(none)')
           PY
+
+      - name: Probe public file endpoints
+        run: |
+          set -u
+          UA='Mozilla/5.0 Six-Cats-Under-Preservation'
+          BASE='https://teambeanloop.itch.io/six-cats-under'
+          for ID in 2267563 2267557 2267627; do
+            echo
+            echo "===== POST $BASE/file/$ID ====="
+            curl -sS -D - -o /tmp/body "${BASE}/file/${ID}" \
+              -X POST -A "$UA" \
+              -H 'Accept: application/json, text/javascript, */*; q=0.01' \
+              -H 'X-Requested-With: XMLHttpRequest' \
+              -H "Referer: $BASE" || true
+            echo '----- BODY -----'
+            cat /tmp/body || true
+            echo
+          done
