@@ -1,0 +1,81 @@
+name: Verify preservation snapshot
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'offline-web/**'
+      - 'native-builds/**'
+      - 'play.sh'
+      - 'tools/serve.py'
+      - '.github/workflows/verify-preservation.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Verify SHA-256 manifests
+        run: |
+          set -euo pipefail
+          (cd offline-web && sha256sum -c MANIFEST.sha256)
+          (cd native-builds && sha256sum -c MANIFEST.sha256)
+
+      - name: Verify native ZIP archives
+        run: |
+          set -euo pipefail
+          for ZIP in native-builds/*.zip; do
+            unzip -t "$ZIP" >/dev/null
+            echo "OK: $ZIP"
+          done
+
+      - name: Verify Unity WebGL dependency set
+        run: |
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          root = Path('offline-web')
+          index = root / 'index.html'
+          loader = root / 'Build' / 'UnityLoader.js'
+          config_path = root / 'Build' / 'web.json'
+
+          for path in (index, loader, config_path):
+              if not path.is_file():
+                  raise SystemExit(f'Missing required file: {path}')
+
+          config = json.loads(config_path.read_text())
+          for key in ('dataUrl', 'wasmCodeUrl', 'wasmFrameworkUrl', 'backgroundUrl'):
+              value = config.get(key)
+              if not value:
+                  raise SystemExit(f'Missing {key} in web.json')
+              path = config_path.parent / value
+              if not path.is_file():
+                  raise SystemExit(f'Missing Unity dependency for {key}: {path}')
+              print(f'OK: {key} -> {path}')
+          PY
+
+      - name: Verify local HTTP launcher payload
+        run: |
+          set -euo pipefail
+          python3 tools/serve.py --directory offline-web --port 8765 >/tmp/six-cats-server.log 2>&1 &
+          PID=$!
+          trap 'kill "$PID" 2>/dev/null || true' EXIT
+          for i in $(seq 1 20); do
+            if curl -fsS http://127.0.0.1:8765/ >/tmp/index.html; then
+              break
+            fi
+            sleep 0.25
+          done
+          curl -fsS http://127.0.0.1:8765/Build/web.json >/tmp/web.json
+          grep -q 'Six Cats Under' /tmp/web.json
+          kill "$PID"
+          wait "$PID" 2>/dev/null || true
+          trap - EXIT
+          echo 'Local preserved browser payload is being served successfully.'
