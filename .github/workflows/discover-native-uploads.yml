@@ -1,0 +1,46 @@
+name: Discover original native itch uploads
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/discover-native-uploads.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  discover:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fetch public itch metadata
+        run: |
+          set -euxo pipefail
+          curl -fL --retry 3 -A 'Mozilla/5.0 Six-Cats-Under-Preservation' \
+            'https://teambeanloop.itch.io/six-cats-under' -o /tmp/page.html
+          curl -fL --retry 3 -A 'Mozilla/5.0 Six-Cats-Under-Preservation' \
+            'https://teambeanloop.itch.io/six-cats-under/data.json' -o /tmp/data.json
+          echo '===== DATA.JSON ====='
+          cat /tmp/data.json
+          echo
+          echo '===== NATIVE FILE / UPLOAD-ID CLUES ====='
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          text = Path('/tmp/page.html').read_text(errors='replace')
+          needles = ['Six Cats Under - Windows.zip', 'Six Cats Under - Linux.zip', 'Six Cats Under.app.zip']
+          for needle in needles:
+              print('\n###', needle)
+              pos = text.find(needle)
+              if pos < 0:
+                  print('not found')
+                  continue
+              chunk = text[max(0, pos-1200):pos+1200]
+              chunk = re.sub(r'\s+', ' ', chunk)
+              print(chunk)
+          print('\n### upload ids found globally')
+          ids = sorted(set(re.findall(r'(?:upload_id|upload-id|data-upload_id|data-upload-id)[^0-9]{0,30}([0-9]{3,})', text, re.I)))
+          print('\n'.join(ids) if ids else '(none)')
+          PY
