@@ -1,0 +1,88 @@
+name: Capture original Six Cats Under web build
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/capture-original-web.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  capture:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Capture original itch.io Unity WebGL build
+        run: |
+          rm -rf offline-web
+          python3 tools/capture_web.py \
+            --url 'https://html-classic.itch.zone/html/2267583/index.html?v=1591301667' \
+            --output offline-web
+
+      - name: Verify captured build
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import sys
+
+          root = Path('offline-web')
+          required = [
+              root / 'index.html',
+              root / 'Build' / 'UnityLoader.js',
+              root / 'MANIFEST.sha256',
+              root / 'SOURCE-MAP.tsv',
+          ]
+          missing = [str(p) for p in required if not p.is_file()]
+          if missing:
+              print('Missing required files:', *missing, sep='\n  ')
+              sys.exit(1)
+
+          build_files = [p for p in (root / 'Build').rglob('*') if p.is_file()]
+          suffixes = {p.suffix.lower() for p in build_files}
+          if '.json' not in suffixes:
+              print('No Unity build JSON captured')
+              sys.exit(1)
+          if not ({'.data', '.unityweb'} & suffixes):
+              print('No Unity data payload captured')
+              sys.exit(1)
+
+          too_large = [(p, p.stat().st_size) for p in root.rglob('*') if p.is_file() and p.stat().st_size >= 100 * 1024 * 1024]
+          if too_large:
+              for p, size in too_large:
+                  print(f'GitHub file-size limit exceeded: {p} ({size} bytes)')
+              sys.exit(1)
+
+          total = sum(p.stat().st_size for p in root.rglob('*') if p.is_file())
+          print(f'Captured {len([p for p in root.rglob("*") if p.is_file()])} files, {total} bytes total')
+          PY
+
+      - name: Record capture metadata
+        run: |
+          {
+            echo '# Original web capture metadata'
+            echo
+            echo '- Source: `https://html-classic.itch.zone/html/2267583/index.html?v=1591301667`'
+            echo "- Captured by GitHub Actions: $(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+            echo "- Commit used for capture tooling: $GITHUB_SHA"
+            echo
+            echo 'The files in `offline-web/` are an untouched preservation capture of the original deployed Unity WebGL release. Generated manifests document source URLs and SHA-256 hashes.'
+          } > docs/WEB-CAPTURE.md
+
+      - name: Commit preserved game files
+        run: |
+          git config user.name 'Six Cats Under Preservation Bot'
+          git config user.email 'github-actions[bot]@users.noreply.github.com'
+          git add offline-web docs/WEB-CAPTURE.md
+          if git diff --cached --quiet; then
+            echo 'No capture changes to commit.'
+            exit 0
+          fi
+          git commit -m 'Preserve original Six Cats Under web build'
+          git push origin HEAD:main
