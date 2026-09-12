@@ -1,0 +1,93 @@
+name: Archive original Six Cats Under native builds
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/archive-native-builds.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  archive:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download original itch.io native releases
+        run: |
+          set -euo pipefail
+          UA='Mozilla/5.0 Six-Cats-Under-Preservation'
+          BASE='https://teambeanloop.itch.io/six-cats-under'
+          rm -rf native-builds
+          mkdir -p native-builds
+
+          download_upload() {
+            ID="$1"
+            NAME="$2"
+            JSON="$(curl -fsS -X POST -A "$UA" \
+              -H 'Accept: application/json, text/javascript, */*; q=0.01' \
+              -H 'X-Requested-With: XMLHttpRequest' \
+              -H "Referer: $BASE" \
+              "$BASE/file/$ID")"
+            URL="$(python3 -c 'import json,sys; print(json.load(sys.stdin)["url"])' <<<"$JSON")"
+            echo "Downloading upload $ID as $NAME"
+            curl -fL --retry 3 -A "$UA" "$URL" -o "native-builds/$NAME"
+            printf '%s\t%s\t%s\n' "$NAME" "$ID" "$BASE/file/$ID" >> native-builds/SOURCE-MAP.tsv
+          }
+
+          printf 'filename\titch_upload_id\tsource_endpoint\n' > native-builds/SOURCE-MAP.tsv
+          download_upload 2267563 'Six Cats Under - Windows.zip'
+          download_upload 2267557 'Six Cats Under - Linux.zip'
+          download_upload 2267627 'Six Cats Under.app.zip'
+
+      - name: Verify ZIP archives and generate hashes
+        run: |
+          set -euo pipefail
+          for ZIP in native-builds/*.zip; do
+            echo "Testing $ZIP"
+            unzip -t "$ZIP" >/dev/null
+            SIZE=$(stat -c '%s' "$ZIP")
+            if [ "$SIZE" -ge 104857600 ]; then
+              echo "GitHub file-size limit exceeded: $ZIP ($SIZE bytes)"
+              exit 1
+            fi
+          done
+          (
+            cd native-builds
+            sha256sum *.zip > MANIFEST.sha256
+          )
+          ls -lh native-builds/*.zip
+          cat native-builds/MANIFEST.sha256
+
+      - name: Write native-build preservation notes
+        run: |
+          cat > native-builds/README.md <<'EOF'
+          # Original native releases
+
+          These ZIP archives are untouched copies of the native Six Cats Under releases that were publicly downloadable from the original Team Bean Loop itch.io page at preservation time.
+
+          They are stored here so the released game remains recoverable if the original hosted downloads disappear in the future, as has happened to many older web and indie games.
+
+          Original game authorship remains with Team Bean Loop / Mosu and the credited creators. This repository is a preservation project, not a claim of authorship.
+
+          `MANIFEST.sha256` records cryptographic hashes of the archived ZIPs. `SOURCE-MAP.tsv` records the original itch.io upload IDs and public source endpoints used to retrieve them.
+          EOF
+
+      - name: Commit preserved native releases
+        run: |
+          set -euo pipefail
+          git config user.name 'Six Cats Under Preservation Bot'
+          git config user.email 'github-actions[bot]@users.noreply.github.com'
+          git add native-builds
+          if git diff --cached --quiet; then
+            echo 'No native-build changes to commit.'
+            exit 0
+          fi
+          git commit -m 'Preserve original Six Cats Under native builds'
+          git push origin HEAD:main
