@@ -4,6 +4,10 @@ A preservation and offline-play project for **Six Cats Under**, the 2020 point-a
 
 The goal of this repository is to preserve the original released game in a form that can still be played locally if the hosted web version eventually disappears.
 
+This kind of preservation matters because web games can vanish surprisingly fast when a hosting service shuts down, a domain expires, a browser technology becomes unsupported, or the original developer files are lost. Projects such as **The Roomz** show how much harder recovery becomes after that happens: surviving game files, forum posts, mirrors, documentation, and dependencies can end up scattered across old archives or disappear entirely.
+
+By preserving Six Cats Under while the original release is still available, this repository aims to keep an untouched copy of the game, document where it came from, record file hashes and source URLs, and provide a simple way to run it locally in the future without depending on the original web host.
+
 ## Current status
 
 - Original itch.io release identified and still live.
