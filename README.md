@@ -2,40 +2,101 @@
 
 A preservation and offline-play project for **Six Cats Under**, the 2020 point-and-click puzzle game by Team Bean Loop / Mosu.
 
+## Why this repository exists
+
 The goal of this repository is to preserve the original released game in a form that can still be played locally if the hosted web version eventually disappears.
 
-This kind of preservation matters because web games can vanish surprisingly fast when a hosting service shuts down, a domain expires, a browser technology becomes unsupported, or the original developer files are lost. Projects such as **The Roomz** show how much harder recovery becomes after that happens: surviving game files, forum posts, mirrors, documentation, and dependencies can end up scattered across old archives or disappear entirely.
+This kind of preservation matters because web games can vanish surprisingly fast when a hosting service shuts down, a domain expires, browser technology changes, or original developer files are lost. Projects such as **The Roomz** show how much harder recovery becomes after that happens: surviving game files, forum posts, mirrors, documentation, and dependencies can end up scattered across old archives or disappear entirely.
 
-By preserving Six Cats Under while the original release is still available, this repository aims to keep an untouched copy of the game, document where it came from, record file hashes and source URLs, and provide a simple way to run it locally in the future without depending on the original web host.
+By preserving **Six Cats Under while the original release is still available**, we can keep untouched copies of the actual released files, record exactly where they came from, hash them for later verification, retain the original credits, and provide a local way to run the game without depending on the original host.
 
-## Current status
+This is a preservation repository. It is **not** a claim of authorship and it is not presented as an original DKLab game.
 
-- Original itch.io release identified and still live.
-- Original HTML5 upload identified: itch.io upload **2267583**.
-- Original embedded build endpoint identified as:
-  `https://html-classic.itch.zone/html/2267583/index.html?v=1591301667`
-- Official Windows, Linux and macOS downloads are still listed on the developer's itch.io page.
-- Offline capture and launcher tooling is included here.
+## Preservation snapshot
 
-## Capture the original web build
+The original public release has now been captured in four forms:
 
-On Linux:
+- **HTML5 / Unity WebGL** — itch.io upload `2267583`
+- **Windows ZIP** — itch.io upload `2267563`
+- **Linux ZIP** — itch.io upload `2267557`
+- **macOS ZIP** — itch.io upload `2267627`
 
-```bash
-bash tools/capture_official_web.sh
-```
+The itch.io game ID is `646263`.
 
-The capture tool follows the original Unity WebGL page, discovers same-build dependencies, downloads them into `offline-web/`, and generates SHA-256 and source manifests.
+The preserved Unity browser build identifies itself as:
+
+- Product: **Six Cats Under**
+- Company: **Team Bean Loop**
+- Version: **1.0**
+- Unity: **2019.2.6f1**
+
+## What is preserved
+
+### Original browser release
+
+`offline-web/` contains the captured original Unity WebGL release, including:
+
+- `index.html`
+- `Build/UnityLoader.js`
+- `Build/web.json`
+- `Build/web.data.unityweb`
+- `Build/web.wasm.code.unityweb`
+- `Build/web.wasm.framework.unityweb`
+- `Build/web.jpg`
+- `MANIFEST.sha256`
+- `SOURCE-MAP.tsv`
+
+The source build was captured from the original deployed itch.io HTML5 upload. The required files referenced by the original `index.html` and `web.json` are preserved locally.
+
+### Original native releases
+
+`native-builds/` contains untouched copies of the publicly downloadable native releases:
+
+- `Six Cats Under - Windows.zip`
+- `Six Cats Under - Linux.zip`
+- `Six Cats Under.app.zip`
+- `MANIFEST.sha256`
+- `SOURCE-MAP.tsv`
+
+Each ZIP was tested as a valid archive before being committed.
 
 ## Play offline
 
-After a successful capture:
+For the preserved browser release on Linux:
 
 ```bash
 bash play.sh
 ```
 
-The launcher serves the preserved Unity build over localhost and opens it in the default browser. Unity WebGL builds should be served over HTTP rather than opened directly with `file://`.
+The launcher starts a local HTTP server for the preserved Unity build and opens it in the default browser. The actual Unity game payload is served from this repository rather than downloaded from itch.io at play time.
+
+You can also use the preserved native ZIP for your operating system directly from `native-builds/`.
+
+## Verify the preserved files
+
+Browser build:
+
+```bash
+cd offline-web
+sha256sum -c MANIFEST.sha256
+```
+
+Native releases:
+
+```bash
+cd native-builds
+sha256sum -c MANIFEST.sha256
+```
+
+## Re-capture tooling
+
+The repository also contains tooling that can reproduce the browser capture while the original hosted release remains online:
+
+```bash
+bash tools/capture_official_web.sh
+```
+
+The capture tool follows the original Unity WebGL page, downloads the same-build dependencies, and generates SHA-256 and source manifests.
 
 ## Repository layout
 
@@ -43,14 +104,17 @@ The launcher serves the preserved Unity build over localhost and opens it in the
 Six-Cats-Under-Game-2020/
 ├── README.md
 ├── play.sh
+├── offline-web/          # preserved original HTML5 / Unity WebGL release
+├── native-builds/        # preserved Windows, Linux and macOS releases
 ├── docs/
 │   ├── SOURCES.md
-│   └── STATUS.md
+│   ├── STATUS.md
+│   └── WEB-CAPTURE.md
 ├── tools/
 │   ├── capture_official_web.sh
 │   ├── capture_web.py
 │   └── serve.py
-└── offline-web/
+└── .github/workflows/    # reproducible capture / archival jobs
 ```
 
 ## Original credits
@@ -62,8 +126,8 @@ Six Cats Under was made as a game jam project. The original itch.io page credits
 - Tomas Beržinskas
 - Alex Martin
 
-This preservation repository is not the original development repository and does not claim authorship of the game.
+Original game authorship remains with its creators.
 
 ## Preservation rule
 
-Keep original files untouched wherever possible. Any compatibility patches or reconstructed material should live separately and be clearly labeled so the preserved release can always be distinguished from later work.
+Keep original files untouched wherever possible. Compatibility fixes, launchers, documentation, reconstructed material, or later experiments should remain clearly separated from the preserved originals so there is never any confusion about what came from the 2020 release and what was added later for preservation or compatibility.
